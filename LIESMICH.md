@@ -27,6 +27,7 @@ Benötigt IngeTrazo ≥ 0.5 (Extension-API 2).
 - Das Werkzeug bleibt aktiv, bis ein anderes gewählt wird (Space = Select).
 
 ## Änderungen
+- **1.1** — eigene Werkzeugleiste **Path Select** mit einem Icon je Befehl (Path Select · Select Contour). Sie erscheint in einer eigenen Zeile unter den eingebauten Leisten und lässt sich wie diese verschieben, abdocken oder ausblenden (Rechtsklick auf eine Leiste). Icons im Stil von IngeTrazo, passend zum hellen/dunklen Theme. **Select Contour** geht jetzt auch über die Leiste mit den gewählten Kanten.
 - **1.0** — erste Veröffentlichung.
 
 ## Lizenz

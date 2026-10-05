@@ -30,7 +30,7 @@ from __future__ import annotations
 import heapq
 import itertools
 
-VERSION = "1.0"
+VERSION = "1.1"
 
 _PREVIEW_RGB = (77, 140, 242)        # the app's hover blue
 _PATH_RGB = (242, 115, 41)           # the app's selection orange
@@ -376,6 +376,219 @@ def _make_tool_class():
 
 # ---- Wiring -----------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Toolbar (PESI3D): icons drawn in IngeTrazo's own icon style
+# ---------------------------------------------------------------------------
+
+def _pesi3d_icons():
+    """Icon key → draw(painter, ink, accent) on a 48 px canvas."""
+    import math  # noqa: F401
+    from PySide6.QtCore import QPointF, QRectF, Qt  # noqa: F401
+    from PySide6.QtGui import (QBrush, QColor, QPainterPath, QPen,  # noqa: F401
+                               QPolygonF)
+
+    def _a(c, alpha):
+        return QColor(c.red(), c.green(), c.blue(), alpha)
+
+    def _poly(pts):
+        return QPolygonF([QPointF(x, y) for x, y in pts])
+
+    def _thin(p, ink, alpha=120, width=1.8, dashed=False):
+        pen = QPen(_a(ink, alpha), width, Qt.DashLine if dashed else Qt.SolidLine)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+
+    def _grid(p, ink, x0=8, y0=8, n=3, step=10.67):
+        p.save()
+        _thin(p, ink, 90, 1.5)
+        for i in range(n + 1):
+            p.drawLine(QPointF(x0 + i * step, y0), QPointF(x0 + i * step, y0 + n * step))
+            p.drawLine(QPointF(x0, y0 + i * step), QPointF(x0 + n * step, y0 + i * step))
+        p.restore()
+
+    def path_select_icon(p, ink, acc):
+        _grid(p, ink)
+        s = 32 / 3
+        pts = [(8, 40), (8 + s, 40), (8 + s, 40 - s), (8 + 2 * s, 40 - s),
+               (8 + 2 * s, 8 + s), (40, 8 + s), (40, 8)]
+        pen = QPen(acc, 4.0)
+        pen.setJoinStyle(Qt.RoundJoin)
+        pen.setCapStyle(Qt.RoundCap)
+        p.save()
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        p.drawPolyline(_poly(pts))
+        p.restore()
+        for x, y in (pts[0], pts[-1]):          # the two clicks
+            p.save()
+            p.setPen(QPen(ink, 2.4))
+            p.setBrush(QColor(255, 255, 255))
+            p.drawEllipse(QPointF(x, y), 4.0, 4.0)
+            p.restore()
+
+    def select_contour_icon(p, ink, acc):
+        # One picked edge (ink) grown along its whole contour (accent).
+        path = QPainterPath()
+        path.moveTo(24, 9)
+        path.cubicTo(36, 9, 41, 16, 40, 24)
+        path.cubicTo(39, 33, 32, 39, 23, 39)
+        path.cubicTo(13, 39, 7, 33, 8, 24)
+        path.cubicTo(9, 15, 13, 9, 24, 9)
+        pen = QPen(acc, 4.0)
+        pen.setCapStyle(Qt.RoundCap)
+        p.save()
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(path)
+        p.restore()
+        thick = QPen(ink, 5.0)
+        thick.setCapStyle(Qt.RoundCap)
+        p.save()
+        p.setPen(thick)
+        p.drawLine(QPointF(9.2, 30), QPointF(16, 37))
+        p.restore()
+        # arrows running out along the contour from the picked edge
+        p.save()
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(ink))
+        p.drawPolygon(_poly([(30, 13.5), (23, 9), (30, 4.5)]))
+        p.drawPolygon(_poly([(37.5, 31), (41, 23.5), (44.5, 31)]))
+        p.restore()
+
+    return {"path": path_select_icon, "contour": select_contour_icon}
+
+
+def _pesi3d_toolbar(app, title, entries):
+    """A toolbar of this plugin's own — one icon per command (PESI3D).
+
+    ``entries`` = (icon key, text, tip, callable). The icons are drawn
+    like IngeTrazo's own (views/icons.py: 48 px, ink = the palette's text
+    colour, 3 px pen, the orange accent) and redrawn when the theme flips.
+    The toolbar moves, floats and hides like the built-in ones (right-click
+    on any toolbar); its place is kept by its objectName."""
+    try:
+        from PySide6.QtCore import QEvent, QObject, QSize, Qt
+        from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
+        from PySide6.QtWidgets import QApplication, QToolBar
+    except Exception:  # noqa: BLE001 — no Qt, no toolbar
+        return None
+    win = getattr(app, "window", None)
+    if win is None:
+        return None
+    draws = _pesi3d_icons()
+
+    def make_icon(key):
+        draw = draws.get(key)
+        if draw is None:
+            return QIcon()
+        qa = QApplication.instance()
+        ink = (QColor(qa.palette().windowText().color()) if qa is not None
+               else QColor(40, 44, 52))
+        pm = QPixmap(48, 48)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        pen = QPen(ink, 3.0)
+        pen.setJoinStyle(Qt.RoundJoin)
+        pen.setCapStyle(Qt.RoundCap)
+        p.setPen(pen)
+        try:
+            draw(p, ink, QColor(243, 115, 41))
+        finally:
+            p.end()
+        return QIcon(pm)
+
+    name = f"pesi3d_{getattr(app, 'key', title)}"
+    tb = None
+    make = getattr(win, "_new_toolbar", None)     # the host's own builder
+    if callable(make):
+        try:
+            tb = make(title, name)
+        except Exception:  # noqa: BLE001
+            tb = None
+    if tb is None:
+        tb = QToolBar(title, win)
+        tb.setObjectName(name)
+        tb.setMovable(True)
+        tb.setFloatable(True)
+        try:
+            from views.icons import toolbar_icon_px
+            px = int(toolbar_icon_px())
+        except Exception:  # noqa: BLE001
+            px = 24
+        tb.setIconSize(QSize(px, px))
+        tb.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        win.addToolBar(Qt.TopToolBarArea, tb)
+
+    actions = []
+    for key, text, tip, fn in entries:
+        act = QAction(make_icon(key), text, tb)
+        act.setToolTip(f"{text}\n{tip}" if tip else text)
+        if tip:
+            act.setStatusTip(tip)
+        act.triggered.connect(lambda _c=False, f=fn: f())
+        tb.addAction(act)
+        actions.append((act, key))
+
+    class _ThemeWatch(QObject):
+        def eventFilter(self, obj, event):  # noqa: N802 — Qt override
+            if event.type() in (QEvent.PaletteChange,
+                                QEvent.ApplicationPaletteChange,
+                                QEvent.StyleChange):
+                for a, k in actions:
+                    a.setIcon(make_icon(k))
+            return False
+
+    watch = _ThemeWatch(tb)
+    tb.installEventFilter(watch)
+    tb._pesi3d_watch = watch
+    _pesi3d_place_later(win)
+    return tb
+
+
+def _pesi3d_place_later(win):
+    """A toolbar the saved window layout does not know yet lands at the end
+    of the top row, squeezed behind the built-in ones. Once the window is
+    laid out, put new PESI3D toolbars on a row of their own under the
+    built-in ones — only the first time each one appears; after that the
+    user's own arrangement (saved with the window) wins. Every PESI3D
+    plugin carries this code; the first one to get here does it for all."""
+    if getattr(win, "_pesi3d_place_pending", False):
+        return
+    win._pesi3d_place_pending = True
+    from PySide6.QtCore import QSettings, Qt, QTimer
+    from PySide6.QtWidgets import QToolBar
+
+    def place():
+        win._pesi3d_place_pending = False
+        try:
+            st = QSettings()
+            key = "plugins/pesi3d/placed_toolbars"
+            placed = st.value(key) or []
+            if isinstance(placed, str):
+                placed = [placed]
+            placed = list(placed)
+            bars = [t for t in win.findChildren(QToolBar)
+                    if t.objectName().startswith("pesi3d_")]
+            new = [t for t in bars if t.objectName() not in placed]
+            if not new:
+                return
+            fresh = not placed            # no PESI3D row yet → open one
+            for i, t in enumerate(sorted(new, key=lambda t: t.objectName())):
+                shown = not t.isHidden()
+                win.removeToolBar(t)
+                if fresh and i == 0:
+                    win.addToolBarBreak(Qt.TopToolBarArea)
+                win.addToolBar(Qt.TopToolBarArea, t)
+                t.setVisible(shown)
+            st.setValue(key, placed + [t.objectName() for t in new])
+        except Exception:  # noqa: BLE001 — layout only, never break the app
+            pass
+
+    QTimer.singleShot(0, place)
+
+
 def setup(app):
     from PySide6.QtCore import QLineF, QPointF, Qt
     from PySide6.QtGui import QColor, QPen
@@ -453,22 +666,37 @@ def setup(app):
     app.add_overlay(overlay)
 
     # Right-click ▸ Select Contour: grow the selected edges along their chains.
+    def grow(edges=None):
+        from core.mesh import Edge
+        if edges is None:
+            edges = [e for e in (app.viewport.scene.selection or ())
+                     if isinstance(e, Edge)]
+        if not edges:
+            return
+        out, seen = [], set()
+        for e in edges:
+            for c in contour_of(e):
+                if c not in seen:
+                    seen.add(c)
+                    out.append(c)
+        app.viewport.scene.select(out, mode="add")
+        app.viewport.update()
+
     def context_menu(menu, selection):
         from core.mesh import Edge
         edges = [e for e in (selection or ()) if isinstance(e, Edge)]
         if not edges:
             return
 
-        def grow():
-            out, seen = [], set()
-            for e in edges:
-                for c in contour_of(e):
-                    if c not in seen:
-                        seen.add(c)
-                        out.append(c)
-            app.viewport.scene.select(out, mode="add")
-            app.viewport.update()
-
-        menu.addAction("Select Contour", grow)
+        menu.addAction("Select Contour", lambda: grow(edges))
 
     app.add_context_menu(context_menu)
+
+    _pesi3d_toolbar(app, "Path Select", [
+        ("path", "Path Select  (Alt+C)",
+         "Select a path of edges by clicking along it — the shortest way "
+         "between the clicks is filled in.", activate),
+        ("contour", "Select Contour",
+         "Grow the selected edges along their whole contour.",
+         lambda: grow(None)),
+    ])

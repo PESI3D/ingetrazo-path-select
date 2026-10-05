@@ -27,6 +27,7 @@ Requires IngeTrazo ≥ 0.5 (extension API 2).
 - The tool stays on until you pick another one (Space = Select).
 
 ## Changelog
+- **1.1** — own toolbar **Path Select** with one icon per command (Path Select · Select Contour). It starts on a row of its own under the built-in toolbars; move, float or hide it like those (right-click on a toolbar). Icons drawn in IngeTrazo's own style, they follow the light/dark theme. **Select Contour** now also works from the toolbar on the selected edges.
 - **1.0** — first release.
 
 ## Licence
