@@ -11,7 +11,7 @@ Click a few points along a contour and the **shortest way along the edges** betw
 2. Copy `path_select_tool.py` into that folder.
 3. Restart IngeTrazo → **Extensions ▸ Path Select** (Alt+C).
 
-Requires IngeTrazo ≥ 0.5 (extension API 2).
+Requires IngeTrazo ≥ 0.5.6 (extension API 2) · tested with IngeTrazo 0.5.8.
 
 ## How to use
 1. **Click an edge** — the path starts there.

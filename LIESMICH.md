@@ -11,7 +11,7 @@ Ein paar Punkte entlang einer Kontur anklicken — der **kürzeste Weg entlang d
 2. `path_select_tool.py` in diesen Ordner kopieren.
 3. IngeTrazo neu starten → **Extensions ▸ Path Select** (Alt+C).
 
-Benötigt IngeTrazo ≥ 0.5 (Extension-API 2).
+Benötigt IngeTrazo ≥ 0.5.6 (Extension-API 2) · getestet mit IngeTrazo 0.5.8.
 
 ## Bedienung
 1. **Kante anklicken** — dort beginnt der Pfad.
